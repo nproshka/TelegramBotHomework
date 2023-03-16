@@ -43,14 +43,16 @@ public class TelegramBotUpdatesListener implements UpdatesListener {
     public int process(List<Update> updates) {
         updates.forEach(update -> {
             logger.info("Processing update: {}", update);
-            Long c = update.message().chat().id();
-            logger.info("id chat: {}", c);
-            Integer m = update.message().messageId();
-            logger.info("id message: {}", m);
+            Long chatId = update.message().chat().id();
+            logger.info("id chat: {}", chatId);
+
+            Integer messageId = update.message().messageId();
+            logger.info("id message: {}", messageId);
+
             if (update.message().text().equals("/start")) {
-            SendMessage helloMessage = new SendMessage(855830166, "Привет, мир!!!");
+                SendMessage helloMessage = new SendMessage(chatId, "Привет, мир!!!");
                 telegramBot.execute(helloMessage);
-            }
+            } else {
 
 
                 Pattern pattern = Pattern.compile("([0-9\\.\\:\\s]{16})(\\s)([\\W+]+)");
@@ -66,7 +68,7 @@ public class TelegramBotUpdatesListener implements UpdatesListener {
                     text = matcher.toMatchResult().group(3);
                 } else {
                     logger.info("Что-то не так");
-                    SendMessage nonCorrect = new SendMessage(c, "Вы ввели некорректные данные, пожалуйста введите данные в формате: дд.мм.гггг чч:мм 'Текст задания без цифр'");
+                    SendMessage nonCorrect = new SendMessage(chatId, "Вы ввели некорректные данные, пожалуйста введите данные в формате: дд.мм.гггг чч:мм 'Текст задания без цифр'");
                     telegramBot.execute(nonCorrect);
                     return;
                 }
@@ -74,20 +76,21 @@ public class TelegramBotUpdatesListener implements UpdatesListener {
                 logger.info("text: {}", text);
 
                 Task task = new Task();
-                task.setChatId(c);
+                task.setChatId(chatId);
                 task.setMessage(text);
                 task.setDateAndTime(LocalDateTime.parse(dateAndTime, DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")));
 
                 logger.info("s: {}", task);
 
                 taskRepository.save(task);
+            }
 
         });
         return UpdatesListener.CONFIRMED_UPDATES_ALL;
     }
 
     @Scheduled(cron = "0 0/1 * * * *")
-    public void checkWhatNeedToDo () {
+    public void checkWhatNeedToDo() {
 
         final List<Task> allTasks = taskRepository.findAll();
 
@@ -95,6 +98,7 @@ public class TelegramBotUpdatesListener implements UpdatesListener {
             if (allTasks.get(i).getDateAndTime().equals(LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES))) {
                 SendMessage tempMessage = new SendMessage(allTasks.get(i).getChatId(), allTasks.get(i).getMessage());
                 telegramBot.execute(tempMessage);
+                taskRepository.deleteById(allTasks.get(i).getId());
             }
         }
     }
